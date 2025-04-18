@@ -1,0 +1,5 @@
+{
+    "g1": { "name": "sonic", "founded": 2022, "rank": 1 },
+    "g2": { "name": "olympic", "founded": 2023, "rank": 2 },
+    "g3": { "name": "skyliner", "founded": 2023, "rank": 3 }
+}

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Guild Position Assignment</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-800">
+  <div id="app" class="p-6 max-w-6xl mx-auto">
+    <div class="w-full grid grid-cols-2 gap-4 text-center">
+      <h3 class="font-semibold text-lg">Attacker</h3>
+      <h3 class="font-semibold text-lg">Defender</h3>
+    </div>
+    
+    <div v-if="Object.keys(positions).length" class="grid gap-4 mb-10">
+      <!-- Loop through positions -->
+      <div v-for="(item, id) in positions" :key="id">
+        <h3 class="text-lg font-semibold capitalize">{{ item.name }}</h3>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <div
+              v-for="n in item.position"
+              :key="`${id}-${n}`"
+              class="bg-white p-4 rounded shadow mb-1"
+            >
+
+              <!-- Dropdown to assign member -->
+              <select
+                v-model="assignments[id][n]"
+                @change="handleAssignment(id, n)"
+                class="w-full border border-gray-300 rounded px-2 py-1"
+              >
+                <option disabled value="">Select a member</option>
+                <option
+                  v-for="(member, memberId) in members"
+                  :key="memberId"
+                  :value="memberId"
+                  :disabled="isMemberAlreadyAssigned(memberId, id, n)"
+                  :class="{ 'text-gray-400': isMemberAlreadyAssigned(memberId, id, n) }"
+                >
+                  {{ member.name }} ({{ member.role }})
+                </option>
+              </select>
+
+              <p v-if="assignments[id][n]" class="text-xs text-gray-500 mt-1">
+                Assigned: {{ members[assignments[id][n]]?.name || 'Unknown' }}
+              </p>
+            </div>
+
+          </div>
+          <div>
+
+            <div
+              v-for="n in item.position"
+              :key="`${id}-${n}`"
+              class="bg-white p-4 rounded shadow mb-1"
+            >
+
+              <!-- Dropdown to assign member -->
+              <select
+                v-model="assignments[id][n]"
+                @change="handleAssignment(id, n)"
+                class="w-full border border-gray-300 rounded px-2 py-1"
+              >
+                <option disabled value="">Select a member</option>
+                <option
+                  v-for="(member, memberId) in members"
+                  :key="memberId"
+                  :value="memberId"
+                  :disabled="isMemberAlreadyAssigned(memberId, id, n)"
+                  :class="{ 'text-gray-400': isMemberAlreadyAssigned(memberId, id, n) }"
+                >
+                  {{ member.name }} ({{ member.role }})
+                </option>
+              </select>
+
+              <p v-if="assignments[id][n]" class="text-xs text-gray-500 mt-1">
+                Assigned: {{ members[assignments[id][n]]?.name || 'Unknown' }}
+              </p>
+            </div>
+
+          </div>
+          
+
+        </div>
+        
+      </div>
+    </div>
+    <p v-else class="text-center text-gray-500">Loading positions...</p>
+  </div>
+
+  <!-- Vue 3 -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script>
+    const { createApp } = Vue;
+
+    createApp({
+      data() {
+        return {
+          members: {},
+          positions: {},
+          assignments: {} // Track assigned members by position/slot
+        };
+      },
+      mounted() {
+        // Load members
+        fetch('data/server_345/members_meta.json')
+          .then(res => res.json())
+          .then(data => {
+            this.members = data;
+          })
+          .catch(err => console.error('Failed to load members:', err));
+
+        // Load positions and initialize assignment slots
+        fetch('data/positions.json')
+          .then(res => res.json())
+          .then(data => {
+            this.positions = data;
+            // Initialize empty assignments for each slot
+            for (const id in data) {
+              this.assignments[id] = {};
+              const count = data[id].position;
+              for (let i = 1; i <= count; i++) {
+                this.assignments[id][i] = "";
+              }
+            }
+          })
+          .catch(err => console.error('Failed to load positions:', err));
+      },
+      methods: {
+        handleAssignment(positionId, slotNumber) {
+          const memberId = this.assignments[positionId][slotNumber];
+          console.log(`Assigned member ${memberId} to ${positionId} slot ${slotNumber}`);
+        },
+        isMemberAlreadyAssigned(memberId, currentPositionId, currentSlot) {
+          for (const posId in this.assignments) {
+            for (const slot in this.assignments[posId]) {
+              if (
+                this.assignments[posId][slot] === memberId &&
+                !(posId === currentPositionId && slot == currentSlot)
+              ) {
+                return true;
+              }
+            }
+          }
+          return false;
+        }
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

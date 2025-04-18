@@ -1,0 +1,42 @@
+{
+    "1": {
+        "name": "bridge",
+        "position": 4
+    },
+    "2": {
+        "name": "bastion of ice",
+        "position": 4
+    },
+    "3": {
+        "name": "gates of nature",
+        "position": 4
+    },
+    "4": {
+        "name": "bastion of fire",
+        "position": 4
+    },
+    "5": {
+        "name": "citadel",
+        "position": 7
+    },
+    "6": {
+        "name": "spring of elements",
+        "position": 4
+    },
+    "7": {
+        "name": "lighthouse",
+        "position": 3
+    },
+    "8": {
+        "name": "foundry",
+        "position": 4
+    },
+    "9": {
+        "name": "mage academy",
+        "position": 3
+    },
+    "10": {
+        "name": "barracks",
+        "position": 3
+    }
+}
