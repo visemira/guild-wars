@@ -250,7 +250,7 @@ createApp({
         return !(
             logDate === today &&
             log.action.startsWith('Battle Result') &&
-            log.details.includes(`${memberName} (${position} Slot ${slot})`)
+            log.details.includes(`${memberName}`)
         );
     });
 
