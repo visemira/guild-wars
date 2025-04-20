@@ -1,0 +1,32 @@
+<div class="grid grid-cols-2 gap-4 mb-1">
+    <div>
+      <label class="block font-semibold">Attacker</label>
+      <select v-model="attackerGuildId" class="w-full border px-2 py-1 rounded" @change="logChange('Change Guild', 'Attacker Guild Changed', attackerGuildId)">
+        <option disabled value="">Select a guild</option>
+        <option 
+          v-for="(guild, id) in guildsInfo" 
+          :key="id" 
+          :value="id"
+          :disabled="id === defenderGuildId"
+        >
+          {{ guild.name }}
+        </option>
+      </select>
+    </div>
+    <div>
+      <label class="block font-semibold">Defender</label>
+      <select v-model="defenderGuildId" class="w-full border px-2 py-1 rounded" @change="logChange('Change Guild', 'Defender Guild Changed', defenderGuildId)">
+        <option disabled value="">Select a guild</option>
+        <option 
+          v-for="(guild, id) in guildsInfo" 
+          :key="id" 
+          :value="id"
+          :disabled="id === attackerGuildId"
+        >
+          {{ guild.name }}
+        </option>
+      </select>
+    </div>
+  </div>
+
+  

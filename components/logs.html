@@ -1,0 +1,19 @@
+<div v-if="logs.length" class="mt-10 p-4 bg-white rounded shadow">
+    <h2 class="font-semibold text-lg">Action Log</h2>
+    <ul class="list-disc pl-6 mt-2">
+      <li v-for="(log, index) in logs" :key="index" class="text-sm text-gray-600">
+        <strong>{{ log.timestamp }}:</strong> {{ log.action }} - {{ log.details }}
+      </li>
+    </ul>
+  </div>
+  
+  <!-- Custom Log Button -->
+  <div class="mt-6">
+    <button
+      class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+      @click="logCustomMessage"
+    >
+      Write Custom Log
+    </button>
+  </div>
+  

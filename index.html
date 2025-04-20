@@ -8,241 +8,211 @@
 </head>
 <body class="bg-gray-100 text-gray-800">
   <div id="app" class="p-6 max-w-6xl mx-auto">
-    
-    <!-- Guild Selectors -->
-    <div class="grid grid-cols-2 gap-4 mb-1">
-      <div>
-        <label class="block font-semibold">Attacker</label>
-        <select v-model="attackerGuildId" class="w-full border px-2 py-1 rounded" @change="logChange('Change Guild', 'Attacker Guild Changed', attackerGuildId)">
-          <option disabled value="">Select a guild</option>
-          <option 
-            v-for="(guild, id) in guildsInfo" 
-            :key="id" 
-            :value="id"
-            :disabled="id === defenderGuildId"
-          >
-            {{ guild.name }}
-          </option>
-        </select>
-      </div>
-      <div>
-        <label class="block font-semibold">Defender</label>
-        <select v-model="defenderGuildId" class="w-full border px-2 py-1 rounded" @change="logChange('Change Guild', 'Defender Guild Changed', defenderGuildId)">
-          <option disabled value="">Select a guild</option>
-          <option 
-            v-for="(guild, id) in guildsInfo" 
-            :key="id" 
-            :value="id"
-            :disabled="id === attackerGuildId"
-          >
-            {{ guild.name }}
-          </option>
-        </select>
-      </div>
-    </div>
 
-    <!-- Positions + Member Assignment -->
-    <div v-if="attackerGuildId && defenderGuildId && Object.keys(positions).length" class="grid gap-2 mt-4">
-      <div v-for="(position, id) in positions" :key="id">
-        <h2 class="text-xl font-bold capitalize mb-2">{{ position.name }}</h2>
-        <div class="grid grid-cols-2 gap-4">
-          <!-- Attacker side -->
+    <!-- Start Match Dialog -->
+    <div v-if="showDialog" class="fixed inset-0 bg-gray-500 bg-opacity-50 flex justify-center items-center z-50">
+      <div class="bg-white p-6 rounded shadow-lg w-96">
+        <h2 class="text-xl font-semibold mb-4 text-center">Select Guilds</h2>
+        <div class="grid grid-cols-2 gap-4 mb-4">
           <div>
-            <div v-for="n in position.position" :key="`atk-${id}-${n}`" class="bg-white rounded shadow mb-2">
-              <select
-                v-model="assignments.attacker[id][n]"
-                class="w-full border px-2 py-1 rounded"
-                @change="logAssignment('Attacker', position.name, n, assignments.attacker[id][n])"
-              >
-                <option disabled value="">Select a member</option>
-                <option
-                  v-for="memberId in attackerMembers"
-                  :key="memberId"
-                  :value="memberId"
-                  :disabled="isMemberAlreadyAssigned(memberId, 'attacker', id, n)"
-                >
-                  {{ members[memberId]?.name }} ({{ members[memberId]?.role }})
-                </option>
-              </select>
-            </div>
+            <label class="block font-semibold">Attacker</label>
+            <select v-model="attackerGuildId" class="w-full border px-2 py-1 rounded" @change="checkSelection">
+              <option value="">Select a guild</option>
+              <option v-for="(guild, id) in guildsInfo" :key="id" :value="id">{{ guild.name }}</option>
+            </select>
           </div>
-
-          <!-- Defender side -->
           <div>
-            <div v-for="n in position.position" :key="`def-${id}-${n}`" class="bg-white rounded shadow mb-2">
-              <select
-                v-model="assignments.defender[id][n]"
-                class="w-full border px-2 py-1 rounded"
-                @change="logAssignment('Defender', position.name, n, assignments.defender[id][n])"
+            <label class="block font-semibold">Defender</label>
+            <select v-model="defenderGuildId" class="w-full border px-2 py-1 rounded" @change="checkSelection">
+              <option value="">Select a guild</option>
+              <option 
+                v-for="(guild, id) in guildsInfo" 
+                :key="id" 
+                :value="id"
+                :disabled="id === attackerGuildId"
               >
-                <option disabled value="">Select a member</option>
-                <option
-                  v-for="memberId in defenderMembers"
-                  :key="memberId"
-                  :value="memberId"
-                  :disabled="isMemberAlreadyAssigned(memberId, 'defender', id, n)"
-                >
-                  {{ members[memberId]?.name }} ({{ members[memberId]?.role }})
-                </option>
-              </select>
-            </div>
+                {{ guild.name }}
+              </option>
+            </select>
           </div>
+        </div>
+        <div class="flex justify-center gap-4">
+          <button 
+            class="bg-blue-600 text-white px-4 py-2 rounded"
+            :disabled="!attackerGuildId || !defenderGuildId"
+            @click="startMatch"
+          >
+            Start Match
+          </button>
+          <button 
+            class="bg-gray-400 text-white px-4 py-2 rounded"
+            @click="closeDialog"
+          >
+            Cancel
+          </button>
         </div>
       </div>
     </div>
 
-    <p v-else class="text-center text-gray-500 mt-10">Please select both guilds to begin assigning.</p>
+    <!-- Main Interface -->
+    <div v-if="!showDialog">
+      <!-- Match Reset Button -->
+      <div class="fixed bottom-6 right-6 justify-end mb-4">
+        <button @click="resetAll" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
+          🔄 New Match
+        </button>
+      </div>
 
-    <!-- Logs Section -->
-    <div v-if="logs.length" class="mt-10 p-4 bg-white rounded shadow">
-      <h2 class="font-semibold text-lg">Action Log</h2>
-      <ul class="list-disc pl-6 mt-2">
-        <li v-for="(log, index) in logs" :key="index" class="text-sm text-gray-600">
-          <strong>{{ log.timestamp }}:</strong> {{ log.action }} - {{ log.details }}
-        </li>
-      </ul>
+      <!-- Guild Selectors -->
+      <div class="grid grid-cols-2 gap-4 mb-1">
+        <div class="flex items-center gap-2">
+          <label class="block font-semibold">Attacker: </label>
+          <select v-model="attackerGuildId" class="w-full border px-2 py-1 rounded" @change="logChange('Change Guild', 'Attacker Guild Changed', attackerGuildId)">
+            <option disabled value="">Select a guild</option>
+            <option v-for="(guild, id) in guildsInfo" :key="id" :value="id" :disabled="id === defenderGuildId">
+              {{ guild.name }}
+            </option>
+          </select>
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="block font-semibold">Defender:</label>
+          <select v-model="defenderGuildId" class="w-full border px-2 py-1 rounded" @change="logChange('Change Guild', 'Defender Guild Changed', defenderGuildId)">
+            <option disabled value="">Select a guild</option>
+            <option v-for="(guild, id) in guildsInfo" :key="id" :value="id" :disabled="id === attackerGuildId">
+              {{ guild.name }}
+            </option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Assignment Area -->
+      <div v-if="attackerGuildId && defenderGuildId && Object.keys(positions).length" class="grid gap-2 mt-4">
+        <div v-for="(position, id) in positions" :key="id">
+          <h2 class="text-xl font-bold capitalize mb-2">{{ position.name }}</h2>
+          <div class="grid grid-cols-2 gap-4">
+
+            <!-- Attacker Side -->
+            <div>
+              <div v-for="n in position.position" :key="`atk-${id}-${n}`" class="flex gap-2 bg-white rounded shadow mb-2">
+                <button
+                  v-if="assignments.attacker[position.name][n]"
+                  @click="clearAssignment('attacker', position.name, n)"
+                  class="ml-2 px-1 rounded hover:bg-red-100"
+                  title="Clear"
+                >
+                🗑️
+                </button>
+                <select
+                  v-model="assignments.attacker[position.name][n]"
+                  :class="['w-full border px-2 py-1 rounded', getBattleResultClass('attacker', position.name, n)]"
+                  @change="logAssignment('attacker', position.name, n, assignments.attacker[position.name][n])"
+                >
+                  <option disabled value="">Select a member</option>
+                  <option
+                    v-for="memberId in attackerMembers"
+                    :key="memberId"
+                    :value="memberId"
+                    :disabled="isMemberAlreadyAssigned(memberId, 'attacker', id, n)"
+                  >
+                    {{ members[memberId]?.name }} ({{ members[memberId]?.role }})
+                  </option>
+                </select>
+                
+                <!-- Attacker Side - Win / Loss buttons -->
+                <div class="flex gap-2" v-if="assignments.attacker[position.name][n]">
+                  <!-- Win Button -->
+                  <button
+                    class="text-white bg-green-500 hover:bg-green-600 text-sm font-semibold px-4 rounded-lg border-2 border-black shadow-lg transition duration-200 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed"
+                    @click="recordBattleResult(assignments.attacker[position.name][n], 'Win', 'attacker', position.name, n)"
+                    :disabled="!assignments.defender[position.name][n]"
+                  >
+                    Win
+                  </button>
+
+
+              <!-- Loss Button -->
+              <button class="text-white bg-red-500 hover:bg-red-600 text-sm font-semibold px-4 rounded-lg border-2 border-black shadow-lg transition duration-200 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed"
+                @click="recordBattleResult(assignments.attacker[position.name][n], 'Loss', 'attacker', position.name, n)"
+                :disabled="!assignments.defender[position.name][n]"
+              >
+                Loss
+              </button>
+            </div>
+
+              </div>
+            </div>
+
+            <!-- Defender Side -->
+            <div>
+              <div v-for="n in position.position" :key="`def-${id}-${n}`" class="flex bg-white rounded shadow mb-2">
+                <button
+                  v-if="assignments.defender[position.name][n]"
+                  @click="clearAssignment('defender', position.name, n)"
+                  class="ml-2 px-1 rounded hover:bg-red-100"
+                  title="Clear"
+                >
+                🗑️
+                </button>
+                <select
+                  v-model="assignments.defender[position.name][n]"
+                  :class="['w-full border px-2 py-1 rounded', getBattleResultClass('defender', position.name, n)]"
+                  @change="logAssignment('defender', position.name, n, assignments.defender[position.name][n])"
+                >
+                  <option disabled value="">Select a member</option>
+                  <option
+                    v-for="memberId in defenderMembers"
+                    :key="memberId"
+                    :value="memberId"
+                    :disabled="isMemberAlreadyAssigned(memberId, 'defender', id, n)"
+                  >
+                    {{ members[memberId]?.name }} ({{ members[memberId]?.role }})
+                  </option>
+                </select>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+      <p v-else class="text-center text-gray-500 mt-10">Please select both guilds to begin assigning.</p>
+
+      <!-- Match Summary Panel -->
+      <div v-if="attackerGuildId && defenderGuildId" class="bg-white p-4 rounded shadow mt-6">
+        <h2 class="text-lg font-semibold mb-2">📊 Match Summary</h2>
+        <div class="grid grid-cols-2 gap-4 text-center">
+          <div>
+            <h3 class="font-bold text-blue-600">Attacker</h3>
+            <p>Wins: {{ matchSummary.attacker.wins }}</p>
+            <p>Losses: {{ matchSummary.attacker.losses }}</p>
+          </div>
+          <div>
+            <h3 class="font-bold text-red-600">Defender</h3>
+            <p>Wins: {{ matchSummary.defender.wins }}</p>
+            <p>Losses: {{ matchSummary.defender.losses }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Logs -->
+      <div v-if="logs.length" class="mt-10 p-4 bg-white rounded shadow">
+        <h2 class="font-semibold text-lg">Action Log</h2>
+        <ul class="list-disc pl-6 mt-2">
+          <li v-for="(log, index) in logs" :key="index" class="text-sm text-gray-600">
+            <strong>{{ log.timestamp }}:</strong> {{ log.action }} - {{ log.details }}
+          </li>
+        </ul>
+        <div class="flex justify-end mt-4">
+          <button @click="downloadLogsAsCSV" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+            📥 Export Logs (CSV)
+          </button>
+        </div>
+      </div>
     </div>
+
   </div>
 
-  <!-- Vue 3 -->
-  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-  <script>
-    const { createApp } = Vue;
-
-    createApp({
-      data() {
-        return {
-          members: {},            // All member info (meta)
-          guilds: {},             // Guilds mapped to member arrays
-          guildsInfo: {},         // Guild info (name, rank, founded)
-          positions: {},          // Position data
-
-          attackerGuildId: '',
-          defenderGuildId: '',
-
-          assignments: {
-            attacker: {},
-            defender: {}
-          },
-
-          logs: []  // To hold the action logs
-        };
-      },
-      computed: {
-        attackerMembers() {
-          return this.attackerGuildId ? this.guilds[this.attackerGuildId] || [] : [];
-        },
-        defenderMembers() {
-          return this.defenderGuildId ? this.guilds[this.defenderGuildId] || [] : [];
-        }
-      },
-      mounted() {
-        // Load data from localStorage if available
-        const savedData = localStorage.getItem('guildMatchData');
-        if (savedData) {
-          const parsedData = JSON.parse(savedData);
-          this.members = parsedData.members || {};
-          this.positions = parsedData.positions || {};
-          this.guildsInfo = parsedData.guildsInfo || {};
-          this.guilds = parsedData.guilds || {};
-          this.assignments = parsedData.assignments || { attacker: {}, defender: {} };
-          this.logs = parsedData.logs || [];
-          this.attackerGuildId = parsedData.attackerGuildId || '';
-          this.defenderGuildId = parsedData.defenderGuildId || '';
-        } else {
-          // If no data in localStorage, fetch the data from the server
-          Promise.all([
-            fetch('data/server_345/members_meta.json').then(res => res.json()),
-            fetch('data/positions.json').then(res => res.json()),
-            fetch('data/server_345/guilds.json').then(res => res.json()),
-            fetch('data/server_345/guilds_meta.json').then(res => res.json())
-          ])
-          .then(([members, positions, guildsJson, guildsInfo]) => {
-            this.members = members;
-            this.positions = positions;
-            this.guildsInfo = guildsInfo;
-
-            // Convert array of guilds into a map: { g1: [memberIds], g2: [...] }
-            this.guilds = {};
-            for (const g of guildsJson.guilds) {
-              this.guilds[g.id] = g.members;
-            }
-
-            // Initialize assignments for attacker and defender
-            for (const side of ['attacker', 'defender']) {
-              this.assignments[side] = {};
-              for (const posId in positions) {
-                const slotCount = positions[posId].position;
-                this.assignments[side][posId] = {};
-                for (let i = 1; i <= slotCount; i++) {
-                  this.assignments[side][posId][i] = '';
-                }
-              }
-            }
-          })
-          .catch(err => console.error('Error loading data:', err));
-        }
-      },
-      watch: {
-        // Watch for changes and save them to localStorage
-        attackerGuildId: function () { this.saveToLocalStorage(); },
-        defenderGuildId: function () { this.saveToLocalStorage(); },
-        assignments: {
-          handler() { this.saveToLocalStorage(); },
-          deep: true
-        },
-        logs: {
-          handler() { this.saveToLocalStorage(); },
-          deep: true
-        }
-      },
-      methods: {
-        logChange(action, details, guildId) {
-          const timestamp = new Date().toLocaleString();
-          this.logs.push({
-            timestamp,
-            action,
-            details: `${details}: ${this.guildsInfo[guildId]?.name || 'Unknown'}`
-          });
-        },
-        logAssignment(side, position, slot, memberId) {
-          const timestamp = new Date().toLocaleString();
-          const memberName = this.members[memberId]?.name || 'Unknown';
-          this.logs.push({
-            timestamp,
-            action: 'Assign Member',
-            details: `${side} - Position: ${position}, Slot: ${slot}, Member: ${memberName}`
-          });
-        },
-        saveToLocalStorage() {
-          const data = {
-            members: this.members,
-            positions: this.positions,
-            guildsInfo: this.guildsInfo,
-            guilds: this.guilds,
-            assignments: this.assignments,
-            logs: this.logs,
-            attackerGuildId: this.attackerGuildId,
-            defenderGuildId: this.defenderGuildId
-          };
-          localStorage.setItem('guildMatchData', JSON.stringify(data));
-        },
-        isMemberAlreadyAssigned(memberId, currentSide, currentPosId, currentSlot) {
-          // Prevent selecting same member across any position/side
-          for (const side of ['attacker', 'defender']) {
-            for (const posId in this.assignments[side]) {
-              for (const slot in this.assignments[side][posId]) {
-                const assigned = this.assignments[side][posId][slot];
-                if (assigned === memberId && !(side === currentSide && posId === currentPosId && slot == currentSlot)) {
-                  return true;
-                }
-              }
-            }
-          }
-          return false;
-        }
-      }
-    }).mount('#app');
-  </script>
+  <!-- Vue App -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
