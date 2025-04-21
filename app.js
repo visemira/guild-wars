@@ -1,29 +1,14 @@
 const { createApp } = Vue;
-const { createRouter, createWebHistory } = VueRouter;
 
-// Define components (your pages)
-
-const Dashboard = {template: '<div><h1>Dashboard</h1></div>'};
-const WarAssignment = { template: '<div><h1>Match Page</h1></div>' };
-const Log = {  template: '<div><h1>Log Time selection</h1></div>' };
-
-// Define routes
-const routes = [
-    { path: '/', component: Dashboard },
-    { path: '/match', component: WarAssignment },
-    { path: '/log', component: Log }
-  ];
-  
-  // Create a router instance
-  const router = createRouter({
-    history: createWebHistory('/'),
-    routes, // short for `routes: routes`
-  });
-
-
-const app = createApp({
+createApp({
     data() {
         return {
+            tabs: [
+                { name: 'Dashboard' },
+                { name: 'Match' },
+                { name: 'Logs' },
+              ],
+            activeTab: 0,
             showDialog: true,
             members: {},
             guilds: {},
@@ -62,7 +47,6 @@ const app = createApp({
                 this.showDialog = lastCloseDate !== today;
 
             } catch (error) {
-                console.error('Error parsing saved data:', error);
                 this.loadData();
             }
         } else {
@@ -260,8 +244,4 @@ const app = createApp({
             document.body.removeChild(link);
         }
     }
-});
-
-app.use(router); // Tell the app to use Vue Router
-
-app.mount('#app');
+}).mount('#app');

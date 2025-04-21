@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Guild Match Assignment</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-800">
+  <div id="app" class="p-6 max-w-6xl mx-auto">
+    <div>
+      <router-link to="/">Home</router-link> | 
+      <router-link to="/match">Match</router-link>  | 
+      <router-link to="/log">Log</router-link>
+    </div>
+    <router-view></router-view> 
+    <!-- Start Match Dialog -->
+    <div v-if="showDialog" class="fixed inset-0 bg-gray-500 bg-opacity-50 flex justify-center items-center z-50">
+      <div class="bg-white p-6 rounded shadow-lg w-96">
+        <h2 class="text-xl font-semibold mb-4 text-center">Select Guilds</h2>
+        <div class="grid grid-cols-2 gap-4 mb-4">
+          <div>
+            <label class="block font-semibold">Attacker</label>
+            <select v-model="attackerGuildId" class="w-full border px-2 py-1 rounded" @change="checkSelection">
+              <option value="">Select a guild</option>
+              <option v-for="(guild, id) in guildsInfo" :key="id" :value="id">{{ guild.name }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold">Defender</label>
+            <select v-model="defenderGuildId" class="w-full border px-2 py-1 rounded" @change="checkSelection">
+              <option value="">Select a guild</option>
+              <option 
+                v-for="(guild, id) in guildsInfo" 
+                :key="id" 
+                :value="id"
+                :disabled="id === attackerGuildId"
+              >
+                {{ guild.name }}
+              </option>
+            </select>
+          </div>
+        </div>
+        <div class="flex justify-center gap-4">
+          <button 
+            class="bg-blue-600 text-white px-4 py-2 rounded"
+            :disabled="!attackerGuildId || !defenderGuildId"
+            @click="startMatch"
+          >
+            Start Match
+          </button>
+          <button 
+            class="bg-gray-400 text-white px-4 py-2 rounded"
+            @click="closeDialog"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Interface -->
+    <div v-if="!showDialog">
+      <!-- Match Reset Button -->
+      <div class="fixed bottom-6 right-6 justify-end mb-4">
+        <button @click="resetAll" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
+          🔄 New Match
+        </button>
+      </div>
+
+      <!-- Guild Selectors -->
+      <div class="grid grid-cols-2 gap-4 mb-1">
+        <div class="flex items-center gap-2">
+          <label class="block font-semibold">Attacker: </label>
+          <select v-model="attackerGuildId" class="w-full border px-2 py-1 rounded" @change="logChange('Change Guild', 'Attacker Guild Changed', attackerGuildId)">
+            <option disabled value="">Select a guild</option>
+            <option v-for="(guild, id) in guildsInfo" :key="id" :value="id" :disabled="id === defenderGuildId">
+              {{ guild.name }}
+            </option>
+          </select>
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="block font-semibold">Defender:</label>
+          <select v-model="defenderGuildId" class="w-full border px-2 py-1 rounded" @change="logChange('Change Guild', 'Defender Guild Changed', defenderGuildId)">
+            <option disabled value="">Select a guild</option>
+            <option v-for="(guild, id) in guildsInfo" :key="id" :value="id" :disabled="id === attackerGuildId">
+              {{ guild.name }}
+            </option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Assignment Area -->
+      <div v-if="attackerGuildId && defenderGuildId && Object.keys(positions).length" class="grid gap-2 mt-4">
+        <div v-for="(position, id) in positions" :key="id">
+          <h2 class="text-xl font-bold capitalize mb-2">{{ position.name }}</h2>
+          <div class="grid grid-cols-2 gap-4">
+
+            <!-- Attacker Side -->
+            <div>
+              <div v-for="n in position.position" :key="`atk-${id}-${n}`" class="flex gap-2 bg-white rounded shadow mb-2">
+                <button
+                  v-if="assignments.attacker[position.name][n]"
+                  @click="clearAssignment('attacker', position.name, n)"
+                  class="ml-2 px-1 rounded hover:bg-red-100"
+                  title="Clear"
+                >
+                🗑️
+                </button>
+                <select
+                  v-model="assignments.attacker[position.name][n]"
+                  :class="['w-full border px-2 py-1 rounded', getBattleResultClass('attacker', position.name, n)]"
+                  @change="logAssignment('attacker', position.name, n, assignments.attacker[position.name][n])"
+                >
+                  <option disabled value="">Select a member</option>
+                  <option
+                    v-for="memberId in attackerMembers"
+                    :key="memberId"
+                    :value="memberId"
+                    :disabled="isMemberAlreadyAssigned(memberId, 'attacker', id, n)"
+                  >
+                    {{ members[memberId]?.name }} ({{ members[memberId]?.role }})
+                  </option>
+                </select>
+                
+                <!-- Attacker Side - Win / Loss buttons -->
+                <div class="flex gap-2" v-if="assignments.attacker[position.name][n]">
+                  <!-- Win Button -->
+                  <button
+                    class="text-white bg-green-500 hover:bg-green-600 text-sm font-semibold px-4 rounded-lg border-2 border-black shadow-lg transition duration-200 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed"
+                    @click="recordBattleResult(assignments.attacker[position.name][n], 'Win', 'attacker', position.name, n)"
+                    :disabled="!assignments.defender[position.name][n]"
+                  >
+                    Win
+                  </button>
+
+
+              <!-- Loss Button -->
+              <button class="text-white bg-red-500 hover:bg-red-600 text-sm font-semibold px-4 rounded-lg border-2 border-black shadow-lg transition duration-200 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed"
+                @click="recordBattleResult(assignments.attacker[position.name][n], 'Loss', 'attacker', position.name, n)"
+                :disabled="!assignments.defender[position.name][n]"
+              >
+                Loss
+              </button>
+            </div>
+
+              </div>
+            </div>
+
+            <!-- Defender Side -->
+            <div>
+              <div v-for="n in position.position" :key="`def-${id}-${n}`" class="flex bg-white rounded shadow mb-2">
+                <button
+                  v-if="assignments.defender[position.name][n]"
+                  @click="clearAssignment('defender', position.name, n)"
+                  class="ml-2 px-1 rounded hover:bg-red-100"
+                  title="Clear"
+                >
+                🗑️
+                </button>
+                <select
+                  v-model="assignments.defender[position.name][n]"
+                  :class="['w-full border px-2 py-1 rounded', getBattleResultClass('defender', position.name, n)]"
+                  @change="logAssignment('defender', position.name, n, assignments.defender[position.name][n])"
+                >
+                  <option disabled value="">Select a member</option>
+                  <option
+                    v-for="memberId in defenderMembers"
+                    :key="memberId"
+                    :value="memberId"
+                    :disabled="isMemberAlreadyAssigned(memberId, 'defender', id, n)"
+                  >
+                    {{ members[memberId]?.name }} ({{ members[memberId]?.role }})
+                  </option>
+                </select>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+      <p v-else class="text-center text-gray-500 mt-10">Please select both guilds to begin assigning.</p>
+
+      <!-- Match Summary Panel -->
+      <div v-if="attackerGuildId && defenderGuildId" class="bg-white p-4 rounded shadow mt-6">
+        <h2 class="text-lg font-semibold mb-2">📊 Match Summary</h2>
+        <div class="grid grid-cols-2 gap-4 text-center">
+          <div>
+            <h3 class="font-bold text-blue-600">Attacker</h3>
+            <p>Wins: {{ matchSummary.attacker.wins }}</p>
+            <p>Losses: {{ matchSummary.attacker.losses }}</p>
+          </div>
+          <div>
+            <h3 class="font-bold text-red-600">Defender</h3>
+            <p>Wins: {{ matchSummary.defender.wins }}</p>
+            <p>Losses: {{ matchSummary.defender.losses }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Logs -->
+      <!-- <div v-if="logs.length" class="mt-10 p-4 bg-white rounded shadow">
+        <h2 class="font-semibold text-lg">Action Log</h2>
+        <ul class="list-disc pl-6 mt-2">
+          <li v-for="(log, index) in logs" :key="index" class="text-sm text-gray-600">
+            <strong>{{ log.timestamp }}:</strong> {{ log.action }} - {{ log.details }}
+          </li>
+        </ul>
+        <div class="flex justify-end mt-4">
+          <button @click="downloadLogsAsCSV" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+            📥 Export Logs (CSV)
+          </button>
+        </div>
+      </div> -->
+    </div>
+  </div>
+
+  <!-- Vue App -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://unpkg.com/vue-router@4"></script>
+  <script src="app.js"></script>
+</body>
+</html>
+<!-- One cannot win two times the same slot  -->
